@@ -12,74 +12,71 @@ import joblib
 
 from src.preprocess import preprocess_text
 
-MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "spam_detector.joblib"
+MODEL_PATH = PROJECT_ROOT / "models" / "spam_detector.joblib"
 
 
 def load_model(model_path: str | Path = MODEL_PATH):
-    """Load a serialized spam detection pipeline."""
+    """Load a trained model and fail with an actionable message if unavailable."""
     path = Path(model_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Model not found at: {path}. Train the model first.")
+    if not path.is_file() or path.stat().st_size == 0:
+        raise FileNotFoundError(
+            f"Trained model is missing or empty: {path}. "
+            "Train it first with: python src/train.py"
+        )
 
     try:
         model = joblib.load(path)
-        if hasattr(model, "named_steps"):
-            classifier = model.named_steps.get("classifier")
-            if classifier is None or not hasattr(classifier, "predict_proba"):
-                raise TypeError("Saved model is missing a compatible classifier.")
-        elif not hasattr(model, "predict_proba"):
-            raise TypeError("Saved model does not expose predict_proba().")
-        return model
     except Exception as exc:
-        try:
-            from src.train import train_model
+        raise RuntimeError(
+            f"Could not read model file: {path}. Retrain it with: python src/train.py"
+        ) from exc
 
-            retrained = train_model()
-            return retrained["model"]
-        except Exception:
-            raise RuntimeError(
-                f"Unable to load a compatible model from {path}. Please retrain the model with: python src/train.py --data data/sms_spam_sample.csv"
-            ) from exc
+    if not hasattr(model, "predict") or not hasattr(model, "predict_proba"):
+        raise TypeError("The saved model must support predict() and predict_proba().")
+    if not hasattr(model, "classes_") or set(model.classes_) != {0, 1}:
+        raise ValueError("The saved model does not contain both ham (0) and spam (1) classes.")
+    return model
 
 
-def predict_message(message: str, model=None):
-    """Predict whether the given message is spam or ham."""
+def predict_message(message: str, model=None) -> dict:
+    """Classify one message and return its label and class probabilities."""
+    if not isinstance(message, str) or not message.strip():
+        raise ValueError("Please provide a non-empty message.")
+
     if model is None:
         model = load_model()
 
     cleaned = preprocess_text(message)
-    prediction = model.predict([cleaned])[0]
     probabilities = model.predict_proba([cleaned])[0]
-
-    label = "Spam" if prediction == 1 else "Ham"
-    confidence = max(probabilities)
+    class_probabilities = {
+        int(class_label): float(probability)
+        for class_label, probability in zip(model.classes_, probabilities)
+    }
+    predicted_class = int(model.predict([cleaned])[0])
+    label = "Spam" if predicted_class == 1 else "Ham"
 
     return {
         "label": label,
-        "confidence": float(confidence),
+        "confidence": class_probabilities[predicted_class],
         "probabilities": {
-            "ham": float(probabilities[0]),
-            "spam": float(probabilities[1]),
+            "ham": class_probabilities.get(0, 0.0),
+            "spam": class_probabilities.get(1, 0.0),
         },
     }
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Predict if a message is spam or ham.")
-    parser.add_argument("message", nargs="?", default="", help="Message text to classify.")
-    parser.add_argument("--model", type=str, default=str(MODEL_PATH), help="Path to the serialized model file.")
+    parser = argparse.ArgumentParser(description="Predict whether a message is spam or ham.")
+    parser.add_argument("message", nargs="+", help="Message text to classify.")
+    parser.add_argument("--model", type=str, default=str(MODEL_PATH), help="Path to model file.")
     args = parser.parse_args()
-
-    if not args.message:
-        print("Please provide a message to classify.", file=sys.stderr)
-        raise SystemExit(1)
 
     try:
         model = load_model(args.model)
-        result = predict_message(args.message, model=model)
+        result = predict_message(" ".join(args.message), model=model)
     except Exception as exc:
         print(f"Prediction failed: {exc}", file=sys.stderr)
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
 
     print(f"Prediction: {result['label']}")
     print(f"Confidence: {result['confidence']:.4f}")
