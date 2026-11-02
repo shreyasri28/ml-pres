@@ -1,59 +1,52 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from collections.abc import Iterable
 
-import nltk
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
-from nltk.tokenize import word_tokenize
-
-try:
-    nltk.data.find("tokenizers/punkt")
-    nltk.data.find("corpora/stopwords")
-    nltk.data.find("corpora/wordnet")
-except LookupError:
-    nltk.download("punkt", quiet=True)
-    nltk.download("stopwords", quiet=True)
-    nltk.download("wordnet", quiet=True)
-    nltk.download("omw-1.4", quiet=True)
-
-STOP_WORDS = set(stopwords.words("english"))
-LEMMATIZER = WordNetLemmatizer()
+# Keep negation words: removing "not", "no", and "nor" can reverse a message's meaning.
+STOP_WORDS = {
+    "a", "about", "above", "after", "again", "against", "all", "am", "an",
+    "and", "any", "are", "as", "at", "be", "because", "been", "before",
+    "being", "below", "between", "both", "but", "by", "can", "could", "did",
+    "do", "does", "doing", "down", "during", "each", "few", "for", "from",
+    "further", "had", "has", "have", "having", "he", "her", "here", "hers",
+    "herself", "him", "himself", "his", "how", "i", "if", "in", "into", "is",
+    "it", "its", "itself", "just", "me", "more", "most", "my", "myself",
+    "of", "off", "on", "once", "only", "or", "other", "our", "ours",
+    "ourselves", "out", "over", "own", "same", "she", "should", "so", "some",
+    "such", "than", "that", "the", "their", "theirs", "them", "themselves",
+    "then", "there", "these", "they", "this", "those", "through", "to", "too",
+    "under", "until", "up", "very", "was", "we", "were", "what", "when",
+    "where", "which", "while", "who", "whom", "why", "will", "with", "would",
+    "you", "your", "yours", "yourself", "yourselves",
+}
 
 
 def clean_text(text: str) -> str:
-    """Clean raw text for spam detection."""
+    """Normalize a message without requiring downloads or external corpora."""
     if text is None:
         return ""
-
-    text = str(text).lower()
-    text = re.sub(r"http\S+|www\.\S+", " URL ", text)
-    text = re.sub(r"[^a-zA-Z\s]", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    value = str(text).lower()
+    value = re.sub(r"https?://\S+|www\.\S+", " url ", value)
+    value = re.sub(r"[^a-z\s]", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def tokenize_and_lemmatize(text: str) -> list[str]:
-    """Tokenize and lemmatize text while removing stop words."""
-    tokens = word_tokenize(text)
-    filtered = []
-    for token in tokens:
-        if token in STOP_WORDS:
-            continue
-        lemma = LEMMATIZER.lemmatize(token)
-        if lemma:
-            filtered.append(lemma)
-    return filtered
+    """Tokenize text and remove common stop words.
+
+    Kept under the historical function name for compatibility; no external
+    lemmatizer or downloaded language corpus is required.
+    """
+    return [token for token in re.findall(r"[a-z]+", text.lower())
+            if token not in STOP_WORDS]
 
 
 def preprocess_text(text: str) -> str:
-    """Run the full text preprocessing pipeline and return a normalized string."""
-    cleaned = clean_text(text)
-    tokens = tokenize_and_lemmatize(cleaned)
-    return " ".join(tokens)
+    """Return normalized tokens for model training and inference."""
+    return " ".join(tokenize_and_lemmatize(clean_text(text)))
 
 
 def preprocess_series(texts: Iterable[str]) -> list[str]:
-    """Apply preprocessing to a sequence of strings."""
+    """Preprocess a sequence of message strings."""
     return [preprocess_text(text) for text in texts]

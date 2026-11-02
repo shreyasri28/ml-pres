@@ -1,26 +1,25 @@
-# Python cache and virtual environments
+# Python
 __pycache__/
 *.py[cod]
-*.so
-venv/
-.env
-.venv/
+*.pyo
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 
-# Jupyter notebooks
-.ipynb_checkpoints/
+# Virtual environments and secrets
+.venv/
+venv/
+.env
+.env.*
 
-# OS files
+# IDE and OS files
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
 
-# IDE files
-.vscode/
-.idea/
-
-# Data and model outputs (keep tracked if needed)
-# Uncomment if you do not want joblib artifacts checked in
-# models/*.joblib
-# data/*.csv
+# Generated model artifacts and downloaded datasets
+models/*.joblib
+data/SMSSpamCollection
+data/SMSSpamCollection.csv
+data/smsspamcollection.zip
