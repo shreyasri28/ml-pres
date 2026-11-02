@@ -1,16 +1,15 @@
-# Data Folder
+# Dataset
 
-This folder stores datasets used by the spam detection project.
+The repository includes `sms_spam_sample.csv` as a tiny example dataset so the project structure is easy to understand.
 
-Recommended dataset for the project:
-- SMS Spam Collection dataset from the UCI Machine Learning Repository
-- File format: tab-separated text with `label` and `text`
+For model training and evaluation, use the full **SMS Spam Collection** dataset from the UCI Machine Learning Repository.
 
-Quick setup:
+Download it with:
 
-1. Run the download script:
-   ```bash
-   python data/download_data.py
-   ```
-2. Ensure the data file is named `SMSSpamCollection` or `SMSSpamCollection.csv`.
-3. The training script will automatically use the sample file if a downloaded dataset is not available.
+```bash
+python data/download_data.py
+```
+
+The script creates `data/SMSSpamCollection`, a tab-separated file with two fields per row: the label (`ham` or `spam`) and the message text.
+
+The training script automatically prefers the full downloaded dataset when it is present. The bundled sample is only for a basic demonstration and should not be used to report meaningful accuracy.
